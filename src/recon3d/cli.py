@@ -3,6 +3,8 @@
     recon3d train    --data DIR --runs DIR configs/overfit.yaml configs/frozen.yaml configs/finetune.yaml
     recon3d evaluate --data DIR --runs DIR --run finetune_resnet18_n1000 --splits val,test
     recon3d unseen   --data DIR --unseen DIR --runs DIR --run finetune_resnet18_n1000
+    recon3d export   --run-dir runs/finetune_resnet18_n1000 --out bundle_v1.0
+    recon3d publish  --bundle bundle_v1.0 --repo Punithb2/recon3d-resnet18 --tag v1.0
     recon3d predict  --checkpoint best.pt --image chair.png --out chair.ply
     recon3d table    --runs DIR
 """
@@ -88,6 +90,27 @@ def cmd_unseen(args) -> int:
     return 0
 
 
+def cmd_export(args) -> int:
+    from .hub import export_bundle, load_bundle
+
+    out = export_bundle(args.run_dir, args.out, repo_id=args.repo)
+    b = load_bundle(out)
+    print(f"bundle written to {out} (verified: reloads and reproduces the checkpoint)")
+    for f in sorted(out.iterdir()):
+        print(f"  {f.name:<20} {f.stat().st_size / 1e6:8.1f} MB")
+    print(f"weights sha256 {b.config['weights_sha256'][:16]}... | OOD threshold {b.detector.threshold:.4f}")
+    print(f"review {out / 'README.md'} (the model card), then run: recon3d publish --bundle {out} --tag v1.0")
+    return 0
+
+
+def cmd_publish(args) -> int:
+    from .hub import publish_bundle
+
+    url = publish_bundle(args.bundle, args.repo, args.tag, private=args.private)
+    print(f"published {args.tag}: {url}")
+    return 0
+
+
 def cmd_predict(args) -> int:
     from .inference import Predictor, load_silhouette
     from .io import write_ply
@@ -148,6 +171,19 @@ def build_parser() -> argparse.ArgumentParser:
     u.add_argument("--run", required=True, help="run folder name, e.g. finetune_resnet18_n1000")
     u.add_argument("--keep", type=float, default=0.95, help="share of seen val images the threshold lets through")
     u.set_defaults(func=cmd_unseen)
+
+    ex = sub.add_parser("export", help="package a finished run as a Hugging Face Hub bundle")
+    ex.add_argument("--run-dir", required=True, help="folder with best.pt and unseen/ood_detector.npz")
+    ex.add_argument("--out", required=True, help="new, empty folder for the bundle")
+    ex.add_argument("--repo", default="Punithb2/recon3d-resnet18", help="Hub repo id (used in the model card)")
+    ex.set_defaults(func=cmd_export)
+
+    pb = sub.add_parser("publish", help="upload a bundle to the Hub and tag the version")
+    pb.add_argument("--bundle", required=True)
+    pb.add_argument("--repo", default="Punithb2/recon3d-resnet18")
+    pb.add_argument("--tag", required=True, help="version tag, e.g. v1.0 (never reused)")
+    pb.add_argument("--private", action="store_true", help="create the repo as private")
+    pb.set_defaults(func=cmd_publish)
 
     pr = sub.add_parser("predict", help="point cloud for one image")
     pr.add_argument("--checkpoint", required=True)

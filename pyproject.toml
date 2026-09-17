@@ -21,7 +21,8 @@ dependencies = [
 
 [project.optional-dependencies]
 plots = ["matplotlib>=3.7"]
-dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.5", "matplotlib>=3.7"]
+hub = ["huggingface_hub>=0.25", "safetensors>=0.4"]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.5", "matplotlib>=3.7", "huggingface_hub>=0.25", "safetensors>=0.4"]
 
 [project.scripts]
 recon3d = "recon3d.cli:main"

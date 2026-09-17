@@ -47,9 +47,9 @@ that **95% of seen-category validation images pass**. Unseen categories are *not
 in production we don't know what strange things people will upload, so tuning on six specific
 unseen categories would overstate how well it works on the seventh.
 
-**Compact bank.** The full bank (6,000 meshes x 24 views = 144,000 vectors) is about 150 MB, too much
-to ship to the web app. The shipped bank keeps 8 of the 24 views (48,000 vectors, about 25 MB
-as float16). The evaluation reports AUROC for both, so you can show the compression costs little
+**Compact bank.** The full bank (6,000 meshes x 24 views = 144,000 vectors) is about 150 MB as float16,
+too much to ship to the web app. The shipped bank keeps 8 of the 24 views (48,000 x 512 x 2 bytes
+= 49 MB, 43 MB compressed). The evaluation reports AUROC for both, so you can show the compression costs little
 (or see if it doesn't).
 
 **Checkpoint binding.** The bank only makes sense for the exact weights that produced it.
@@ -106,3 +106,31 @@ refuses a mismatch. That prevents a classic deployment bug: new model, stale det
   tuning on the test OOD set leaks information and overstates performance.
 - **"What if you retrain the model?"** The detector is bound to the checkpoint hash and must be rebuilt;
   the loader refuses a stale one.
+
+## Results (model `finetune_resnet18_n1000`, Kaggle run on the real data)
+
+**Parity.** Re-evaluating the notebook's checkpoint with the package reproduced the notebook's test
+metrics to within 0.01% (CD x1000 1.2268 vs 1.2269).
+
+| | meshes | model CD x1000 | model F@1% | retrieval CD x1000 |
+|---|---|---|---|---|
+| trained categories (test) | 600 | 1.23 [1.12, 1.36] | 0.277 | 2.46 |
+| unseen categories | 1,140 | 15.43 [14.53, 16.36] | 0.041 | 31.96 |
+
+What the numbers say:
+
+1. **No generalisation to new categories.** Error is 12.6x higher, and F@1% drops from 0.28 to 0.04.
+2. **"Beats retrieval" is not "works".** On unseen objects the model still has half the retrieval error,
+   but its F-score is near zero. Chamfer punishes a confident wrong shape (retrieval copies a real
+   training object) more than a vague average shape (what the model tends to produce), so the lower
+   CD most likely reflects hedging, not understanding.
+3. **Distance from training matters.** Box-like categories close to cabinet/table (loudspeaker 5.0,
+   bathtub 5.7, telephone 6.6) degrade 3-5x; guitar (18.7, resembles rifle) and bus (44.9) fail badly.
+4. **The detector is useful but weak.** AUROC 0.77 (0.79 with the full bank, so the 3x smaller bank
+   costs 0.02). With 4% false alarms on trained categories it flags only 26% of unseen images. It is good
+   on guitar (0.93) and laptop (0.90) and near chance on loudspeaker (0.59).
+5. **Its biggest miss is the worst category.** Buses have the highest error but only 14% are flagged:
+   a bus silhouette looks like a long box, close to cabinets in feature space. The score measures how
+   unfamiliar the *image* looks, not how hard the *3D shape* is. The app's wording must reflect that.
+6. **The score is still a meaningful confidence signal.** Spearman 0.58 with error overall and 0.57
+   *within* trained categories, so the app shows it as a continuous familiarity value, not only a flag.

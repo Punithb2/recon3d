@@ -1,0 +1,58 @@
+{
+ "recon3d_version": "0.1.0",
+ "cfg": {
+  "name": "finetune",
+  "kind": "train",
+  "backbone": "resnet18",
+  "pretrained": true,
+  "decoder": "mlp",
+  "img_res": 224,
+  "n_pred": 2048,
+  "n_gt": 2048,
+  "n_queries": 256,
+  "pts_per_query": 8,
+  "d_model": 256,
+  "n_layers": 4,
+  "n_heads": 8,
+  "patch_radius": 0.1,
+  "epochs": 40,
+  "steps": 600,
+  "batch_size": 64,
+  "lr": 0.0003,
+  "enc_lr": 0.0001,
+  "weight_decay": 0.0001,
+  "warmup_epochs": 2,
+  "grad_clip": 1.0,
+  "amp": true,
+  "views_per_mesh": 8,
+  "train_encoder": true,
+  "unfreeze": [
+   "layer3",
+   "layer4"
+  ],
+  "freeze_encoder_epochs": 0,
+  "aug": true,
+  "init_decoder_from": "frozen",
+  "val_views": [
+   [
+    45,
+    30
+   ],
+   [
+    135,
+    0
+   ]
+  ],
+  "fscore_taus": [
+   0.01,
+   0.02
+  ],
+  "seed": 0
+ },
+ "best_epoch": 36,
+ "val_cd_x1000": 1.4288245389858882,
+ "source_checkpoint_sha256": "f82a1f33f8934f216c85d9d7d03c19646a4e13826eae2e386fe1c337f6a088ab",
+ "weights_sha256": "b65e5367349464d2f2472ac7e51deac5a44d14eb3385ee797ea84bd535802596",
+ "run": "finetune_resnet18_n1000",
+ "exported": "2026-09-17 20:24:30"
+}
