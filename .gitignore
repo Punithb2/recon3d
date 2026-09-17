@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Data and model files never go into git (ShapeNet terms forbid redistribution; weights are large).
+# Block B tracks them with DVC instead.
+data/
+runs/
+models/
+*.pt
+*.pth
+*.npy
+*.npz
+*.ply
+results_table.csv
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

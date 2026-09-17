@@ -1,0 +1,10 @@
+# Stage 2 of LP-FT: decoder starts from the frozen run; layer3 + layer4 are fine-tuned. Production model.
+epochs: 40
+batch_size: 64
+lr: 3.0e-4
+enc_lr: 1.0e-4
+views_per_mesh: 8
+train_encoder: true
+unfreeze: [layer3, layer4]
+aug: true
+init_decoder_from: frozen

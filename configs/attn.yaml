@@ -1,0 +1,17 @@
+# Experiment v2: spatial-token transformer decoder. Result: tied on Chamfer, worse F@1%. Kept for reproducibility.
+decoder: attn
+epochs: 50
+batch_size: 64
+lr: 3.0e-4
+enc_lr: 1.0e-4
+views_per_mesh: 8
+train_encoder: true
+unfreeze: [layer3, layer4]
+aug: true
+freeze_encoder_epochs: 5
+n_queries: 256
+pts_per_query: 8
+d_model: 256
+n_layers: 4
+n_heads: 8
+patch_radius: 0.1

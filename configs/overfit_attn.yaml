@@ -1,0 +1,5 @@
+kind: overfit
+decoder: attn
+steps: 600
+batch_size: 16
+lr: 5.0e-4

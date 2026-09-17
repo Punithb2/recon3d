@@ -1,0 +1,8 @@
+# Stage 1 of LP-FT: ImageNet encoder frozen, features cached once, only the MLP decoder trains.
+epochs: 60
+batch_size: 128
+lr: 1.0e-3
+enc_lr: 0.0
+views_per_mesh: 8
+train_encoder: false
+aug: false

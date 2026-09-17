@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "recon3d"
+version = "0.1.0"
+description = "Single-view 3D reconstruction: silhouette -> ResNet-18 -> 2,048-point cloud"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Punith B" }]
+# torch is NOT pinned: Kaggle, Spaces and your laptop each ship their own CUDA/CPU build.
+dependencies = [
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "pyyaml>=6.0",
+    "pillow>=10.0",
+]
+
+[project.optional-dependencies]
+plots = ["matplotlib>=3.7"]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.5", "matplotlib>=3.7"]
+
+[project.scripts]
+recon3d = "recon3d.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["slow: trains a tiny model end to end (still < 1 min on CPU)"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E741"]

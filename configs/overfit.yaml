@@ -1,0 +1,6 @@
+# Sanity check: fit 16 fixed samples with a frozen encoder. Must pass before real training.
+kind: overfit
+steps: 600
+batch_size: 16
+lr: 1.0e-3
+train_encoder: false
