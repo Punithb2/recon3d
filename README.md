@@ -25,9 +25,13 @@ src/recon3d/
   inference.py      Predictor for single images
   tracking.py       experiment-tracking interface (MLflow plugs in here)
   io.py, plots.py   checkpoints, PLY export, figures
-  cli.py            `recon3d train | evaluate | unseen | predict | table`
+  hub.py            export/publish/load model bundles on the Hugging Face Hub
+  framing.py        object framing statistics of training silhouettes
+  serve/            web app: settings, preprocessing, InferenceService, FastAPI API, Gradio UI, telemetry
+  cli.py            `recon3d train | evaluate | unseen | export | publish | serve | framing | predict | table`
 tests/              pytest suite on a tiny synthetic dataset (runs on CPU in about a minute)
 notebooks/          thin Kaggle launchers that pip-install this package and call the CLI
+space/              Hugging Face Space entry point (deployed by scripts/deploy_space.py)
 scripts/            one-off helpers (check_checkpoint.py)
 docs/               design notes for each block
 ```
@@ -39,7 +43,8 @@ python -m venv .venv
 # Windows: .venv\Scripts\activate      macOS/Linux: source .venv/bin/activate
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 pip install -e ".[dev]"
-pytest
+pytest                    # 122 tests, about 1 min, peaks near 1.4 GB RAM
+pytest -m "not slow"      # 10 s smoke run (skips the end-to-end training tests)
 ruff check .
 ```
 
@@ -55,6 +60,9 @@ recon3d evaluate --data DATA --runs runs --run finetune_resnet18_n1000 --splits 
 
 # never-seen categories + OOD detector for the web app
 recon3d unseen --data DATA --unseen UNSEEN_DATA --runs runs --run finetune_resnet18_n1000
+
+# web app locally (UI at http://127.0.0.1:8000, API docs at /docs)
+recon3d serve --model-dir bundle_v1.0.1
 
 # one image -> .ply
 recon3d predict --checkpoint models/best.pt --image chair.png --out chair.ply

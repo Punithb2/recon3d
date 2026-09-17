@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import json
 
 import numpy as np
@@ -10,6 +11,8 @@ import pytest
 import torch
 
 from recon3d.config import TrainConfig
+
+torch.set_num_threads(2)      # tests are tiny; more threads only add per-thread memory arenas
 
 CATS = ["airplane", "chair"]
 UNSEEN_CATS = ["lamp", "sofa"]
@@ -80,6 +83,14 @@ def make_dataset(root, seed=0, cats=CATS, counts=COUNTS, extra_meta=None):
     return root
 
 
+@pytest.fixture(autouse=True)
+def _release_memory():
+    """Each test builds ResNet-18s and services; without this they pile up until the last tests
+    (training) fail with an out-of-memory error on an 8 GB laptop."""
+    yield
+    gc.collect()
+
+
 @pytest.fixture(scope="session")
 def dataset(tmp_path_factory):
     return make_dataset(tmp_path_factory.mktemp("data"))
@@ -104,3 +115,20 @@ def session(dataset, tmp_path):
     from recon3d.train import Session
     torch.manual_seed(0)
     return Session(data_root=dataset, runs_dir=tmp_path / "runs", device="cpu")
+
+
+@pytest.fixture(scope="session")
+def bundle_dir(tmp_path_factory, dataset, unseen_dataset):
+    """A complete Hub bundle from a tiny trained model: what the web app loads."""
+    from recon3d.evaluate import evaluate
+    from recon3d.hub import export_bundle
+    from recon3d.train import Session, train
+    from recon3d.unseen import evaluate_unseen
+
+    s = Session(data_root=dataset, runs_dir=tmp_path_factory.mktemp("serve_runs"), device="cpu")
+    cfg = TrainConfig(name="finetune", pretrained=False, img_res=64, n_pred=128, n_gt=128, epochs=1,
+                      batch_size=16, views_per_mesh=2, warmup_epochs=1, amp=False)
+    run_dir = train(cfg, s)
+    evaluate(run_dir, "test", s)
+    evaluate_unseen(run_dir, s, unseen_dataset)
+    return export_bundle(run_dir, tmp_path_factory.mktemp("bundle") / "b")

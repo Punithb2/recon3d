@@ -26,14 +26,21 @@ from .plots import plot_category_bars, plot_ood_hist, plot_qualitative, plot_sco
 from .train import Session, encode_split
 
 
-def bootstrap_ci(values, n_boot: int = 2000, seed: int = 0, alpha: float = 0.05) -> tuple[float, float]:
+def bootstrap_ci(values, n_boot: int = 2000, seed: int = 0, alpha: float = 0.05,
+                 chunk: int = 200) -> tuple[float, float]:
     """95% CI of the mean by resampling. Pass one value per MESH: the 24 views of a mesh are not
-    independent samples, so resampling views would give falsely narrow intervals."""
+    independent samples, so resampling views would give falsely narrow intervals.
+
+    Resampling happens in chunks: one (n_boot, n) index array would be n_boot * n * 8 bytes
+    (hundreds of MB for a large sample), which is a needless memory spike."""
     v = np.asarray(values, np.float64)
     if len(v) < 2:
         return float("nan"), float("nan")
     rng = np.random.default_rng(seed)
-    means = v[rng.integers(0, len(v), (n_boot, len(v)))].mean(1)
+    means = np.empty(n_boot)
+    for s in range(0, n_boot, chunk):
+        k = min(chunk, n_boot - s)
+        means[s:s + k] = v[rng.integers(0, len(v), (k, len(v)))].mean(1)
     return float(np.quantile(means, alpha / 2)), float(np.quantile(means, 1 - alpha / 2))
 
 

@@ -1,0 +1,2 @@
+# Written by scripts/deploy_space.py: the package is pinned to the exact commit being deployed.
+recon3d[serve,hub] @ git+https://github.com/Punithb2/recon3d@main

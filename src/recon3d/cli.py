@@ -6,6 +6,8 @@
     recon3d export   --run-dir runs/finetune_resnet18_n1000 --out bundle_v1.0
     recon3d publish  --bundle bundle_v1.0 --repo Punith25/recon3d-resnet18 --tag v1.0
     recon3d predict  --checkpoint best.pt --image chair.png --out chair.ply
+    recon3d serve    --model-dir bundle_v1.0.1          (local web app on http://127.0.0.1:8000)
+    recon3d framing  --data DIR --unseen DIR --out framing
     recon3d table    --runs DIR
 """
 
@@ -126,6 +128,40 @@ def cmd_predict(args) -> int:
     return 0
 
 
+def cmd_serve(args) -> int:
+    import logging
+
+    import uvicorn
+
+    from .serve.api import create_app
+    from .serve.settings import Settings
+
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    overrides = {"model_dir": args.model_dir} if args.model_dir else {}
+    if args.revision:
+        overrides["model_revision"] = args.revision
+    settings = Settings.from_env(framing_file=args.framing, **overrides)
+    print(f"model: {settings.model_dir or settings.model_repo + '@' + settings.model_revision} | "
+          f"frame fill {settings.frame_fill} | open http://{args.host}:{args.port}")
+    app = create_app(settings, examples_dir=args.examples)
+    uvicorn.run(app, host=args.host, port=args.port)
+    return 0
+
+
+def cmd_framing(args) -> int:
+    from .framing import run
+
+    z = run(args.data, args.out, unseen=args.unseen, per_category=args.per_category, max_meshes=args.max_meshes)
+    stats = __import__("json").loads((Path(args.out) / "framing.json").read_text())
+    fill = stats["fill"]
+    print(f"object fill (longest side / image side): median {fill['p50']}, "
+          f"5-95% [{fill['p5']}, {fill['p95']}] over {stats['images']:,} images")
+    print(f"centre offset x median {stats['center_x']['p50']}, y median {stats['center_y']['p50']}")
+    print(f"recommended RECON3D_FRAME_FILL = {stats['recommended_fill']}")
+    print(f"wrote {z}")
+    return 0
+
+
 def cmd_table(args) -> int:
     from .evaluate import results_table
 
@@ -191,6 +227,23 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--out", help="output .ply (default: next to the image)")
     pr.add_argument("--device", default="cpu")
     pr.set_defaults(func=cmd_predict)
+
+    sv = sub.add_parser("serve", help="run the web app (FastAPI + Gradio) locally")
+    sv.add_argument("--model-dir", help="local bundle folder (default: download from the Hub)")
+    sv.add_argument("--revision", help="Hub tag to load (default: RECON3D_MODEL_REVISION or the built-in pin)")
+    sv.add_argument("--examples", default="space/examples", help="folder of example PNGs for the UI")
+    sv.add_argument("--framing", default="space/framing.json", help="framing.json from `recon3d framing`")
+    sv.add_argument("--host", default="127.0.0.1")
+    sv.add_argument("--port", type=int, default=8000)
+    sv.set_defaults(func=cmd_serve)
+
+    fr = sub.add_parser("framing", help="measure object framing in training silhouettes + export demo examples")
+    fr.add_argument("--data", required=True, help="training dataset folder")
+    fr.add_argument("--unseen", help="unseen-category dataset folder (adds 'expect a warning' examples)")
+    fr.add_argument("--out", default="framing")
+    fr.add_argument("--per-category", type=int, default=2)
+    fr.add_argument("--max-meshes", type=int, help="limit for a quick run")
+    fr.set_defaults(func=cmd_framing)
 
     tb = sub.add_parser("table", help="collect all eval summaries into results_table.csv")
     tb.add_argument("--runs", default="runs")
