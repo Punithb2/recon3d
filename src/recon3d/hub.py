@@ -45,7 +45,7 @@ def _read_json(path: Path) -> dict | None:
     return json.loads(path.read_text()) if path.exists() else None
 
 
-def export_bundle(run_dir: str | Path, out_dir: str | Path, repo_id: str = "Punithb2/recon3d-resnet18") -> Path:
+def export_bundle(run_dir: str | Path, out_dir: str | Path, repo_id: str = "Punith25/recon3d-resnet18") -> Path:
     """Turn a finished run folder into a Hub bundle. Expects in run_dir:
     best.pt, unseen/ood_detector.npz, unseen/summary.json, and (optional) eval_test_summary.json."""
     from safetensors.torch import save_file

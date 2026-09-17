@@ -10,7 +10,7 @@ So the project has three homes, each for one kind of thing:
 |---|---|---|
 | Code, configs, tests | GitHub `Punithb2/recon3d` | git commits |
 | Data | private Kaggle datasets (v1, v2, unseen6-v1) | Kaggle dataset versions |
-| Trained model + detector + card | HF Hub `Punithb2/recon3d-resnet18` | git tags `v1.0`, `v1.1`, ... |
+| Trained model + detector + card | HF Hub `Punith25/recon3d-resnet18` | git tags `v1.0`, `v1.1`, ... |
 
 ## The bundle
 

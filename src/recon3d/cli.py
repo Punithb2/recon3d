@@ -4,7 +4,7 @@
     recon3d evaluate --data DIR --runs DIR --run finetune_resnet18_n1000 --splits val,test
     recon3d unseen   --data DIR --unseen DIR --runs DIR --run finetune_resnet18_n1000
     recon3d export   --run-dir runs/finetune_resnet18_n1000 --out bundle_v1.0
-    recon3d publish  --bundle bundle_v1.0 --repo Punithb2/recon3d-resnet18 --tag v1.0
+    recon3d publish  --bundle bundle_v1.0 --repo Punith25/recon3d-resnet18 --tag v1.0
     recon3d predict  --checkpoint best.pt --image chair.png --out chair.ply
     recon3d table    --runs DIR
 """
@@ -175,12 +175,12 @@ def build_parser() -> argparse.ArgumentParser:
     ex = sub.add_parser("export", help="package a finished run as a Hugging Face Hub bundle")
     ex.add_argument("--run-dir", required=True, help="folder with best.pt and unseen/ood_detector.npz")
     ex.add_argument("--out", required=True, help="new, empty folder for the bundle")
-    ex.add_argument("--repo", default="Punithb2/recon3d-resnet18", help="Hub repo id (used in the model card)")
+    ex.add_argument("--repo", default="Punith25/recon3d-resnet18", help="Hub repo id (used in the model card)")
     ex.set_defaults(func=cmd_export)
 
     pb = sub.add_parser("publish", help="upload a bundle to the Hub and tag the version")
     pb.add_argument("--bundle", required=True)
-    pb.add_argument("--repo", default="Punithb2/recon3d-resnet18")
+    pb.add_argument("--repo", default="Punith25/recon3d-resnet18")
     pb.add_argument("--tag", required=True, help="version tag, e.g. v1.0 (never reused)")
     pb.add_argument("--private", action="store_true", help="create the repo as private")
     pb.set_defaults(func=cmd_publish)

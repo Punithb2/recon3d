@@ -22,6 +22,7 @@ models/
 *.npz
 *.ply
 results_table.csv
+bundle_*/
 
 # OS / editors
 .DS_Store
