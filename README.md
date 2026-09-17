@@ -20,12 +20,16 @@ src/recon3d/
   metrics.py        Chamfer distance, F-score, precision/recall, spread ratio
   train.py          overfit sanity check, resumable training loop
   evaluate.py       model vs nearest-neighbour retrieval baseline
+  unseen.py         evaluation on never-seen categories
+  ood.py            out-of-distribution detector (feature similarity + threshold)
   inference.py      Predictor for single images
   tracking.py       experiment-tracking interface (MLflow plugs in here)
   io.py, plots.py   checkpoints, PLY export, figures
-  cli.py            `recon3d train | evaluate | predict | table`
-tests/              pytest suite on a tiny synthetic dataset (runs on CPU in about 30 s)
+  cli.py            `recon3d train | evaluate | unseen | predict | table`
+tests/              pytest suite on a tiny synthetic dataset (runs on CPU in about a minute)
+notebooks/          thin Kaggle launchers that pip-install this package and call the CLI
 scripts/            one-off helpers (check_checkpoint.py)
+docs/               design notes for each block
 ```
 
 ## Setup (CPU laptop)
@@ -48,6 +52,9 @@ recon3d train --data /kaggle/input/recon3d-shapenet6-v2 --runs runs \
 
 # evaluation of a finished run
 recon3d evaluate --data DATA --runs runs --run finetune_resnet18_n1000 --splits val,test
+
+# never-seen categories + OOD detector for the web app
+recon3d unseen --data DATA --unseen UNSEEN_DATA --runs runs --run finetune_resnet18_n1000
 
 # one image -> .ply
 recon3d predict --checkpoint models/best.pt --image chair.png --out chair.ply

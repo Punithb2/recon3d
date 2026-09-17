@@ -2,6 +2,7 @@
 
     recon3d train    --data DIR --runs DIR configs/overfit.yaml configs/frozen.yaml configs/finetune.yaml
     recon3d evaluate --data DIR --runs DIR --run finetune_resnet18_n1000 --splits val,test
+    recon3d unseen   --data DIR --unseen DIR --runs DIR --run finetune_resnet18_n1000
     recon3d predict  --checkpoint best.pt --image chair.png --out chair.ply
     recon3d table    --runs DIR
 """
@@ -79,6 +80,14 @@ def cmd_evaluate(args) -> int:
     return 0
 
 
+def cmd_unseen(args) -> int:
+    from .unseen import evaluate_unseen
+
+    s = _session(args)
+    evaluate_unseen(s.runs_dir / args.run, s, args.unseen, keep=args.keep)
+    return 0
+
+
 def cmd_predict(args) -> int:
     from .inference import Predictor, load_silhouette
     from .io import write_ply
@@ -132,6 +141,13 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("--run", required=True, help="run folder name, e.g. finetune_resnet18_n1000")
     e.add_argument("--splits", default="val,test", help="comma-separated")
     e.set_defaults(func=cmd_evaluate)
+
+    u = sub.add_parser("unseen", help="evaluate on never-seen categories and build the OOD detector")
+    data_args(u)
+    u.add_argument("--unseen", required=True, help="dataset folder with categories the model never trained on")
+    u.add_argument("--run", required=True, help="run folder name, e.g. finetune_resnet18_n1000")
+    u.add_argument("--keep", type=float, default=0.95, help="share of seen val images the threshold lets through")
+    u.set_defaults(func=cmd_unseen)
 
     pr = sub.add_parser("predict", help="point cloud for one image")
     pr.add_argument("--checkpoint", required=True)

@@ -7,6 +7,7 @@ error-analysis and scaling notebooks keep working.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -14,13 +15,75 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 
-from .data import preprocess
+from .config import TrainConfig
+from .data import Split, preprocess
 from .metrics import chamfer, fscore
 from .models import load_checkpoint
 from .plots import plot_qualitative
 from .train import Session, encode_split
 
 _TRAIN_FEATS: dict[str, torch.Tensor] = {}
+
+
+@dataclass
+class TrainBank:
+    """L2-normalised global features of every training image, for retrieval and similarity."""
+
+    feats: torch.Tensor          # [N_train * V, D], unit length
+    mesh: torch.Tensor           # [N_train * V] training mesh index of each row
+
+
+def train_bank(model, cfg: TrainConfig, run_dir: Path, session: Session) -> TrainBank:
+    key = str(run_dir)
+    tr = session.split("train")
+    if key not in _TRAIN_FEATS:                       # encoding 144k images takes a while: cache per run
+        _TRAIN_FEATS[key] = F.normalize(encode_split(model, tr, cfg.img_res, session).flatten(0, 1).float(), dim=1)
+    mesh = torch.arange(tr.N, device=session.device).repeat_interleave(tr.V)
+    return TrainBank(_TRAIN_FEATS[key], mesh)
+
+
+@dataclass
+class SplitScores:
+    long: pd.DataFrame        # one row per (method, mesh, view): cd_x1000, f@tau
+    extra: pd.DataFrame       # one row per (mesh, view): retrieved training mesh, its cosine similarity
+    keep: dict                # {mesh: (pred, retrieval)} point clouds at keep_view, for figures
+    feats: torch.Tensor       # [N * V, D] unit-length image features (CPU, float16), row order = extra
+
+
+@torch.no_grad()
+def score_split(model, cfg: TrainConfig, sp: Split, tr: Split, bank: TrainBank, session: Session,
+                keep_view: int | None = None, chunk: int = 512) -> SplitScores:
+    """Predict every (mesh, view) of `sp` and score model + retrieval against the ground truth."""
+    rows, extra, keep, feats = [], [], {}, []
+    mesh_idx = np.repeat(np.arange(sp.N), sp.V)
+    view_idx = np.tile(np.arange(sp.V), sp.N)
+    for s in range(0, len(mesh_idx), chunk):
+        mi, vi = mesh_idx[s:s + chunk], view_idx[s:s + chunk]
+        gt = sp.gt(mi, cfg.n_gt)
+        with session.autocast():
+            x = preprocess(sp.images(mi, vi), cfg.img_res)
+            f = model.embed(x)
+            pred = model.decode(f) if hasattr(model, "decode") else model(x)
+        fn = F.normalize(f.float(), dim=1)
+        feats.append(fn.half().cpu())
+        sim, j = (fn @ bank.feats.T).max(1)                                  # closest training image
+        nn_train = bank.mesh[j]
+        retr = tr.gt(nn_train.cpu().numpy(), cfg.n_gt)
+        for method, P in (("model", pred), ("retrieval", retr)):
+            cd, d_pg, d_gp = chamfer(P, gt)
+            out = {"cd_x1000": (1000 * cd).cpu().numpy()}
+            for t in cfg.fscore_taus:
+                out[f"f@{t}"] = fscore(d_pg, d_gp, t).cpu().numpy()
+            for k in range(len(mi)):
+                rows.append(dict(method=method, mesh=int(mi[k]), view=int(vi[k]),
+                                 **{name: float(v[k]) for name, v in out.items()}))
+        extra.append(pd.DataFrame(dict(mesh=mi, view=vi, nn_train_mesh=nn_train.cpu().numpy(),
+                                       max_sim=sim.cpu().numpy())))
+        if keep_view is not None:
+            for k, m in enumerate(mi):
+                if vi[k] == keep_view:
+                    keep[int(m)] = (pred[k].float().cpu().numpy(), retr[k].cpu().numpy())
+    return SplitScores(pd.DataFrame(rows), pd.concat(extra, ignore_index=True), keep, torch.cat(feats))
 
 
 @torch.no_grad()
@@ -31,39 +94,9 @@ def evaluate(run_dir: str | Path, split_name: str, session: Session, n_vis: int 
     views = session.meta.views
     vis_view = session.meta.view_index(cfg.val_views[0])
 
-    # 1) global features of every (mesh, view); train features feed the retrieval baseline
-    f_eval = encode_split(model, sp, cfg.img_res, session).flatten(0, 1).float()
-    key = str(run_dir)
-    if key not in _TRAIN_FEATS:
-        _TRAIN_FEATS[key] = encode_split(model, tr, cfg.img_res, session).flatten(0, 1).float()
-    f_train = _TRAIN_FEATS[key]
-    mesh_of_train = torch.arange(tr.N, device=session.device).repeat_interleave(tr.V)
-    fe_n, ft_n = F.normalize(f_eval, dim=1), F.normalize(f_train, dim=1)
-
-    rows, keep = [], {}
-    mesh_idx = np.repeat(np.arange(sp.N), sp.V)
-    view_idx = np.tile(np.arange(sp.V), sp.N)
-    for s in range(0, len(f_eval), 512):
-        sl = slice(s, s + 512)
-        mi, vi = mesh_idx[sl], view_idx[sl]
-        gt = sp.gt(mi, cfg.n_gt)
-        with session.autocast():
-            pred = model(preprocess(sp.images(mi, vi), cfg.img_res))
-        nn_train = mesh_of_train[(fe_n[sl] @ ft_n.T).argmax(1)]          # closest training image
-        retr = tr.gt(nn_train.cpu().numpy(), cfg.n_gt)
-        for method, P in (("model", pred), ("retrieval", retr)):
-            cd, d_pg, d_gp = chamfer(P, gt)
-            out = {"cd_x1000": (1000 * cd).cpu().numpy()}
-            for t in cfg.fscore_taus:
-                out[f"f@{t}"] = fscore(d_pg, d_gp, t).cpu().numpy()
-            for j in range(len(mi)):
-                rows.append(dict(method=method, mesh=int(mi[j]), view=int(vi[j]),
-                                 **{k: float(v[j]) for k, v in out.items()}))
-        for j, m in enumerate(mi):
-            if vi[j] == vis_view:
-                keep[int(m)] = (pred[j].float().cpu().numpy(), retr[j].cpu().numpy())
-
-    df = pd.DataFrame(rows)
+    bank = train_bank(model, cfg, run_dir, session)
+    res = score_split(model, cfg, sp, tr, bank, session, keep_view=vis_view)
+    df, keep = res.long, res.keep
     df["category"] = sp.index["category"].to_numpy()[df.mesh]
     df["elevation"] = [views[v][1] for v in df.view]
     metrics = ["cd_x1000"] + [f"f@{t}" for t in cfg.fscore_taus]
