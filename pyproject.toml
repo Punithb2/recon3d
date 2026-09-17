@@ -9,6 +9,8 @@ description = "Single-view 3D reconstruction: silhouette -> ResNet-18 -> 2,048-p
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Punith B" }]
+license = { text = "MIT" }
+keywords = ["3d-reconstruction", "point-cloud", "single-view", "shapenet", "pytorch"]
 # torch is NOT pinned: Kaggle, Spaces and your laptop each ship their own CUDA/CPU build.
 dependencies = [
     "torch>=2.1",
