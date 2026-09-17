@@ -1,5 +1,6 @@
 """Check that a checkpoint trained in the Kaggle notebook loads and predicts with the package.
 
+usage:
     python scripts/check_checkpoint.py path/to/best.pt [path/to/silhouette.png]
 
 Prints the stored config, parameter count and a prediction summary. Exit code 0 = all checks passed.
@@ -49,7 +50,7 @@ def main(ckpt: str, image: str | None = None) -> int:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print(__doc__)
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        print(__doc__)                       # usage: path to best.pt, optional silhouette image
         sys.exit(2)
     sys.exit(main(*sys.argv[1:3]))

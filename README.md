@@ -1,5 +1,9 @@
 # recon3d: single-view 3D reconstruction
 
+[![CI](https://github.com/Punithb2/recon3d/actions/workflows/ci.yml/badge.svg)](https://github.com/Punithb2/recon3d/actions/workflows/ci.yml)
+[![Demo](https://img.shields.io/badge/demo-Hugging%20Face%20Space-blue)](https://huggingface.co/spaces/Punith25/recon3d)
+[![Model](https://img.shields.io/badge/model-Punith25%2Frecon3d--resnet18-yellow)](https://huggingface.co/Punith25/recon3d-resnet18)
+
 A silhouette image goes in; a 2,048-point 3D point cloud comes out.
 
 ```
@@ -69,6 +73,12 @@ recon3d predict --checkpoint models/best.pt --image chair.png --out chair.ply
 ```
 
 Any config value can be overridden: `--set epochs=5 --set lr=1e-3`.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs ruff and the test suite on Python 3.11 and 3.12 for every push and pull
+request. Pushes to `main` that pass also deploy the Space (pinned to the commit) and smoke-test the
+running app. Needs one repository secret: `HF_TOKEN` with write access.
 
 ## Data
 

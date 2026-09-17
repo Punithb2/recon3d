@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      model_revision:
+        description: "Model tag the Space should serve (e.g. v1.0.1); empty = leave unchanged"
+        required: false
+        default: ""
+
+concurrency:                       # a new push cancels the previous run for the same branch
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: tests (python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install (CPU-only torch, ~10x smaller than the CUDA build)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Tests
+        run: pytest -q --durations=5
+
+  deploy:
+    name: deploy to Hugging Face Space
+    needs: test                                  # never deploy a commit whose tests failed
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-space                        # one deploy at a time
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0                         # deploy_space.py looks through history for the package commit
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deploy tools
+        run: pip install "huggingface_hub>=0.25" httpx pillow
+      - name: Upload the Space, pinned to this commit
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODEL_REVISION: ${{ github.event.inputs.model_revision }}   # only set by a manual run
+        run: |
+          python scripts/deploy_space.py --ref "$GITHUB_SHA" --no-remote-check \
+            ${MODEL_REVISION:+--model-revision "$MODEL_REVISION"}
+      - name: Smoke-test the running app
+        env:
+          MODEL_REVISION: ${{ github.event.inputs.model_revision }}
+        run: |
+          python scripts/smoke_space.py --timeout 900 \
+            ${MODEL_REVISION:+--expect-revision "$MODEL_REVISION"}
